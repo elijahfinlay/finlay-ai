@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  name             String?
+  plan             String   @default("free")
+  creditsBalance   Int      @default(0)
+  creditsUsed      Int      @default(0)
+  stripeCustomerId String?  @unique
+  stripeSubId      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  jobs         GenerationJob[]
+  assets       GeneratedAsset[]
+  transactions CreditTransaction[]
+}
+
+model AuthToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model GenerationJob {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  type            String
+  provider        String
+  prompt          String
+  negativePrompt  String?
+  params          Json
+  referenceImages Json?
+
+  status         String   @default("pending")
+  progress       Int      @default(0)
+  providerJobId  String?
+  providerStatus String?
+  resultUrl      String?
+  errorMessage   String?
+
+  estimatedCost  Float @default(0)
+  actualCost     Float?
+  creditsCharged Int   @default(0)
+
+  submittedAt  DateTime?
+  completedAt  DateTime?
+  pollCount    Int       @default(0)
+  lastPolledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  asset GeneratedAsset?
+
+  @@index([userId, status])
+  @@index([status, lastPolledAt])
+  @@index([providerJobId])
+}
+
+model GeneratedAsset {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  jobId  String @unique
+  job    GenerationJob @relation(fields: [jobId], references: [id])
+
+  type     String
+  provider String
+
+  storagePath   String?
+  storageUrl    String?
+  muxAssetId    String?
+  muxPlaybackId String?
+
+  prompt          String
+  width           Int?
+  height          Int?
+  durationSeconds Float?
+  fileSizeBytes   Int?
+  mimeType        String?
+
+  title    String?
+  favorite Boolean @default(false)
+  deleted  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, type, createdAt])
+  @@index([userId, favorite])
+  @@index([muxAssetId])
+}
+
+model CreditTransaction {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  amount          Int
+  balance         Int
+  type            String
+  description     String
+  jobId           String?
+  stripePaymentId String?
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
